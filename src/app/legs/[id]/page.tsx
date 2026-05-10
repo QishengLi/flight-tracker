@@ -92,7 +92,13 @@ export default async function LegDetailPage({
               <p>{leg.notes}</p>
             </div>
           )}
-          <div className="col-span-2 pt-2">
+          <div className="col-span-2 pt-2 flex items-center gap-4">
+            <a
+              href={`/legs/${leg.id}/edit`}
+              className="text-sm text-blue-600 hover:underline"
+            >
+              Edit leg
+            </a>
             <ArchiveLegButton legId={leg.id} status={leg.status} />
           </div>
         </div>
