@@ -132,10 +132,11 @@ Heatmap or chart of typical price by day-of-week and lead time, aggregated acros
    - departureDate (one-way; no returnDate)
    - `includedAirlineCodes`: leg.airlines
    - adults: 1, currency: USD, max: 50 (need a wider net to find main-cabin after filtering out basic economy)
-4. Parse response → drop offers that don't qualify as main-cabin (see §5.4). From what remains, take the lowest price per airline plus the overall lowest.
-5. Write rows to `price_snapshots`. If no qualifying main-cabin fare exists for an airline, skip that airline for this check (do not write a row) — never invent a price.
-6. For each leg with a `purchase_price` set, evaluate alert rules. If triggered and not recently fired, write an `alerts` row and send the email.
-7. Log run metadata (duration, API calls, errors) to `cron_runs` for debugging.
+4. Parse response → drop offers that don't qualify as main-cabin (see §5.4). From what remains, take the lowest price per airline.
+5. Write one row to `price_snapshots` per qualifying airline. If no qualifying main-cabin fare exists for an airline, skip that airline — never invent a price. Then write one row to `daily_lowest` with the single cheapest price across all qualifying airlines for this leg and check time.
+6. For each leg with a `purchase_price` set, evaluate alert rules against `daily_lowest`. If triggered and not fired in the last 24h, write an `alerts` row and send the email.
+7. Archive any legs where `departure_date < today` (set `status = 'archived'`). This runs as a nightly cleanup step, separate from the price-check loop.
+8. Log run metadata (duration, API calls, snapshots written, alerts fired, errors) to `cron_runs` for debugging.
 
 ---
 
@@ -181,8 +182,8 @@ CREATE TABLE price_snapshots (
   id              bigserial PRIMARY KEY,
   leg_id          uuid NOT NULL REFERENCES legs(id) ON DELETE CASCADE,
   checked_at      timestamptz NOT NULL DEFAULT now(),
-  airline         text NOT NULL,           -- 'AS','DL','UA' or 'ANY' for overall lowest
-  price           numeric(10,2) NOT NULL,
+  airline         text NOT NULL,           -- 'AS', 'DL', 'UA' — always a specific carrier, never a sentinel
+  price           numeric(10,2) NOT NULL,  -- total price (base + taxes), USD
   currency        text NOT NULL DEFAULT 'USD',
   fare_brand      text,                    -- e.g. 'MAIN', 'MAIN CABIN', 'ECONOMY'
   is_changeable   boolean,                 -- true if changeable / refundable-as-credit
@@ -192,7 +193,24 @@ CREATE TABLE price_snapshots (
 
 CREATE INDEX snapshots_leg_time_idx ON price_snapshots(leg_id, checked_at DESC);
 
--- Fired alerts. Used to dedupe and to surface in UI.
+-- Overall lowest qualifying price across all airlines, one row per (leg, check time).
+-- Used by alert evaluation and the recommendation engine. Avoids sentinel 'ANY' values
+-- polluting price_snapshots and keeps aggregate queries simple.
+CREATE TABLE daily_lowest (
+  id              bigserial PRIMARY KEY,
+  leg_id          uuid NOT NULL REFERENCES legs(id) ON DELETE CASCADE,
+  checked_at      timestamptz NOT NULL DEFAULT now(),
+  price           numeric(10,2) NOT NULL,  -- total price (base + taxes), USD
+  currency        text NOT NULL DEFAULT 'USD',
+  airline         text NOT NULL,           -- carrier that offered this price
+  fare_brand      text,
+  is_changeable   boolean,
+  flight_offer    jsonb
+);
+
+CREATE INDEX daily_lowest_leg_time_idx ON daily_lowest(leg_id, checked_at DESC);
+
+-- Fired alerts. Used to dedupe (rolling 24h window) and to surface in UI.
 CREATE TABLE alerts (
   id              bigserial PRIMARY KEY,
   leg_id          uuid NOT NULL REFERENCES legs(id) ON DELETE CASCADE,
@@ -200,6 +218,7 @@ CREATE TABLE alerts (
   kind            text NOT NULL,           -- 'price_drop' | 'all_time_low' | 'buy_signal'
   current_price   numeric(10,2) NOT NULL,
   reference_price numeric(10,2) NOT NULL,  -- purchase_price or historical low
+  cheapest_airline text,                   -- airline offering current_price at alert time
   delivered       boolean DEFAULT false,
   payload         jsonb
 );
@@ -211,11 +230,13 @@ CREATE TABLE cron_runs (
   finished_at     timestamptz,
   legs_checked    int,
   api_calls       int,
+  snapshots_written int,
+  alerts_fired    int,
   errors          jsonb
 );
 ```
 
-**Volume.** ~4 active legs × 3 checks/day × 3 airlines × 365 days ≈ 13,000 rows/year. Trivial. Kept indefinitely.
+**Volume.** `price_snapshots`: ~4 legs × 3 checks/day × 3 airlines × 365 days ≈ 13,000 rows/year. `daily_lowest`: ~4,400 rows/year. Both trivial; kept indefinitely.
 
 ---
 
@@ -223,26 +244,32 @@ CREATE TABLE cron_runs (
 
 ### 5.1 Schedule
 
-Three runs per day, spread out so we sample different times of day (prices do shift intraday):
+Three price-check runs per day, spread out so we sample different times of day (prices do shift intraday). Vercel Cron schedules are UTC:
 
-- 08:00 PT
-- 14:00 PT
-- 22:00 PT
+| Local (PT) | UTC (PDT) | UTC (PST) |
+|---|---|---|
+| 08:00 PT | 15:00 UTC | 16:00 UTC |
+| 14:00 PT | 21:00 UTC | 22:00 UTC |
+| 22:00 PT | 05:00 UTC | 06:00 UTC |
 
-Configured via `vercel.json` → `crons`. Each run hits a single endpoint that does all trips sequentially.
+Use PDT offsets as the default; accept the 1h drift in winter.
+
+Configured via `vercel.json` → `crons`. Each run hits a single endpoint that processes all legs sequentially.
+
+A fourth nightly cron (e.g. 02:00 UTC) hits `/api/cron/cleanup` to archive legs where `departure_date < today`.
 
 ### 5.2 Endpoint contract
 
 `POST /api/cron/check-prices`
 
 - Auth: `Authorization: Bearer ${CRON_SECRET}` (Vercel injects this automatically for Vercel Crons; for GitHub Actions, set as a secret).
-- Returns: `{ ok: true, trips_checked: N, snapshots_written: M, alerts: [...] }`.
-- Idempotent: rerunning produces extra snapshots, never wrong state. Alerts dedupe by `(trip_id, kind, day)`.
+- Returns: `{ ok: true, legs_checked: N, snapshots_written: M, alerts_fired: K }`.
+- Idempotent: rerunning produces extra snapshots and `daily_lowest` rows, never wrong state. Alerts dedupe by `(leg_id, kind)` with a rolling 24h window — no alert of a given kind fires more than once per leg per 24-hour period.
 
 ### 5.3 Resilience
 
 - Per-leg try/catch — one failure doesn't kill the run.
-- Amadeus token cached (valid ~30 min) in a small `kv` table or in-memory if the function is warm.
+- Amadeus token cached in a `token_cache` table (one row, `expires_at` column). Vercel serverless functions have no guaranteed warm state between invocations, so in-memory caching is not reliable.
 - Exponential backoff on 429 / 5xx with max 3 retries.
 - If a run fails entirely, log to `cron_runs.errors` and surface in the dashboard.
 
@@ -260,7 +287,7 @@ Amadeus returns fare brand info on each offer. The exact field names and brand s
 | Delta (DL) | `BASIC ECONOMY`, `BASIC` | `MAIN CABIN`, `MAIN`, `COMFORT+`, `FIRST`, `DELTA ONE` |
 | United (UA) | `BASIC ECONOMY`, `BASIC` | `ECONOMY`, `ECONOMY PLUS`, `PREMIUM PLUS`, `BUSINESS`, `FIRST` |
 
-Match the brand string from `flightOffer.travelerPricings[].fareDetailsBySegment[].brandedFare` (or `brandedFareLabel`). Comparison is case-insensitive, trimmed. If brand info is missing (some Amadeus responses omit it), fall back to inspecting `cabin` (must be `ECONOMY` or above — never `BASIC_ECONOMY`) and `includedCheckedBagsOnly.quantity` (basic-economy almost always returns 0; main-cabin varies, so this is a soft signal only).
+Match the brand string from `flightOffer.travelerPricings[].fareDetailsBySegment[].brandedFare` (or `brandedFareLabel`). Comparison is case-insensitive, trimmed. If brand info is missing (some Amadeus responses omit it), fall back to inspecting `cabin` (must be `ECONOMY` or above — never `BASIC_ECONOMY`) and `fareDetailsBySegment[].includedCheckedBags.quantity` (basic-economy almost always returns 0; main-cabin varies, so this is a soft signal only).
 
 **Persist the brand and changeability** (`fare_brand`, `is_changeable` columns) so the dashboard can show "$214 — Alaska Main, changeable" rather than just a number, and so historical data stays interpretable if the rules change later.
 
@@ -273,12 +300,14 @@ Match the brand string from `flightOffer.travelerPricings[].fareDetailsBySegment
 For each active leg with a `purchase_price`:
 
 **Trigger price-drop alert when ALL of:**
-- `current_price < purchase_price - alert_threshold_abs` **OR** `current_price < purchase_price * (1 - alert_threshold_pct/100)`
-- No alert of kind `price_drop` fired for this leg in the last 24h.
+- `daily_lowest.price < purchase_price - alert_threshold_abs` **OR** `daily_lowest.price < purchase_price * (1 - alert_threshold_pct/100)`
+- No alert of kind `price_drop` fired for this leg in the last 24h (rolling window, checked against `alerts.fired_at`).
 - `departure_date - today >= 1` (no point alerting after departure).
-- The current snapshot is a **qualifying main-cabin fare** (basic-economy snapshots are never written and so never trigger anything).
+- `daily_lowest` only contains qualifying main-cabin fares, so this condition is guaranteed by construction.
 
-**Optionally fire `all_time_low`** when the latest qualifying snapshot is the lowest value ever recorded for this leg.
+The alert body names the cheapest airline from `daily_lowest.airline` so the user knows which carrier to check.
+
+**Optionally fire `all_time_low`** when the latest `daily_lowest.price` is the lowest value ever recorded for this leg (compare against `MIN(price)` from `daily_lowest` for that leg).
 
 **Default thresholds:** `$50 OR 10%`, whichever is met first. Tunable per leg.
 
@@ -292,7 +321,7 @@ The user opted to keep alerts simple — report the raw price drop and let them 
 Triggered when viewing a future leg without a `purchase_price`.
 
 **Inputs:**
-- All historical (qualifying main-cabin) `price_snapshots` for the same (origin, destination) pair.
+- All historical `daily_lowest` rows for the same (origin, destination) pair (already main-cabin by construction).
 - Lead time = `departure_date - today` in days.
 - Day-of-week of departure.
 
@@ -326,7 +355,7 @@ Minimal, single-user, no real auth. Five screens:
 
 **Stack:** Next.js (App Router), Tailwind, Recharts for charts, server components for data loading. No client-side state library — Postgres is the source of truth and pages just re-render.
 
-**Auth:** since it's personal, gate the whole app behind a single environment-variable password via a thin middleware. Don't bother with full auth.
+**Auth:** since it's personal, gate the whole app behind HTTP Basic Auth via a thin Next.js middleware. The username and password come from env vars (`BASIC_AUTH_USER`, `BASIC_AUTH_PASSWORD`). No session cookies, no login page.
 
 ---
 
@@ -341,7 +370,8 @@ DATABASE_URL
 RESEND_API_KEY
 NOTIFY_EMAIL_TO
 CRON_SECRET              # auto-injected by Vercel Crons
-APP_PASSWORD             # for the single-user gate
+BASIC_AUTH_USER          # HTTP Basic Auth username
+BASIC_AUTH_PASSWORD      # HTTP Basic Auth password
 ```
 
 ---
@@ -398,8 +428,8 @@ Realistic total: **$0–$1/month** for the foreseeable future.
 
 ## 13. Open questions
 
-The four originally-open questions are now resolved (legs tracked separately as one-ways; raw price drop only; main-cabin only; email-only MVP; SEA-only). Two new questions emerged from those decisions:
+All questions are now resolved:
 
-1. **Trip group as auto-detected or manual?** Right now `trip_group` is a free-text label the user types when adding a leg. A nicer alternative: when adding a leg, the form suggests existing nearby-date legs to pair with. Worth doing in MVP, or punt to Phase 2?
-2. **Brand string maintenance.** The §5.4 brand list will drift as airlines rename fare buckets. Acceptable to handle this manually (edit the list when you notice an issue), or do you want a background job that alerts you when an unexpected brand string appears in the API response?
-3. **Currency/taxes.** Amadeus returns `total` (taxes included) and `base` separately. The doc currently uses the total. Confirm — or do you want both stored and surfaced?
+1. **Trip group: manual free-text only in MVP.** The form accepts a free-text `trip_group` label; no auto-suggest. Auto-suggest (querying nearby-date legs during form submission) is deferred to Phase 2.
+2. **Brand string maintenance.** Handled manually — edit the exclusion list in code when an unexpected brand string is spotted. The validation plan in §5.4 (logging all offers for the first 2 weeks) is the early-warning mechanism.
+3. **Currency/taxes.** `price` columns store the Amadeus `total` (base + taxes, USD). Base price is not stored separately.
