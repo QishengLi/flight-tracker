@@ -3,8 +3,9 @@ export const dynamic = "force-dynamic";
 import { notFound } from "next/navigation";
 import { db } from "@/db";
 import { legs, priceSnapshots, alerts as alertsTable } from "@/db/schema";
-import { eq, desc } from "drizzle-orm";
+import { eq, asc, desc } from "drizzle-orm";
 import ArchiveLegButton from "./ArchiveLegButton";
+import PriceChart, { ChartPoint } from "./PriceChart";
 
 function fmtDate(d: string) {
   return new Date(d + "T12:00:00").toLocaleDateString("en-US", {
@@ -24,6 +25,30 @@ function fmtTs(ts: Date | string) {
   });
 }
 
+function buildChartData(
+  snapshots: { checkedAt: Date; airline: string; price: string }[],
+  airlines: string[]
+): ChartPoint[] {
+  // Aggregate: lowest price per (date, airline).
+  const map = new Map<string, Record<string, number>>();
+
+  for (const s of snapshots) {
+    const date = new Date(s.checkedAt)
+      .toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    if (!map.has(date)) map.set(date, {});
+    const row = map.get(date)!;
+    const price = parseFloat(s.price);
+    if (row[s.airline] === undefined || price < row[s.airline]) {
+      row[s.airline] = price;
+    }
+  }
+
+  return Array.from(map.entries()).map(([date, prices]) => ({
+    date,
+    ...Object.fromEntries(airlines.map((a) => [a, prices[a] ?? null])),
+  }));
+}
+
 export default async function LegDetailPage({
   params,
 }: {
@@ -34,19 +59,28 @@ export default async function LegDetailPage({
   const [leg] = await db.select().from(legs).where(eq(legs.id, id)).limit(1);
   if (!leg) notFound();
 
-  const snapshots = await db
-    .select()
-    .from(priceSnapshots)
-    .where(eq(priceSnapshots.legId, id))
-    .orderBy(desc(priceSnapshots.checkedAt))
-    .limit(100);
+  const [allSnapshots, recentSnapshots, firedAlerts] = await Promise.all([
+    db
+      .select({ checkedAt: priceSnapshots.checkedAt, airline: priceSnapshots.airline, price: priceSnapshots.price })
+      .from(priceSnapshots)
+      .where(eq(priceSnapshots.legId, id))
+      .orderBy(asc(priceSnapshots.checkedAt)),
+    db
+      .select()
+      .from(priceSnapshots)
+      .where(eq(priceSnapshots.legId, id))
+      .orderBy(desc(priceSnapshots.checkedAt))
+      .limit(100),
+    db
+      .select()
+      .from(alertsTable)
+      .where(eq(alertsTable.legId, id))
+      .orderBy(desc(alertsTable.firedAt))
+      .limit(20),
+  ]);
 
-  const firedAlerts = await db
-    .select()
-    .from(alertsTable)
-    .where(eq(alertsTable.legId, id))
-    .orderBy(desc(alertsTable.firedAt))
-    .limit(20);
+  const chartData = buildChartData(allSnapshots, leg.airlines);
+  const purchasePrice = leg.purchasePrice ? parseFloat(leg.purchasePrice) : null;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -93,20 +127,29 @@ export default async function LegDetailPage({
             </div>
           )}
           <div className="col-span-2 pt-2 flex items-center gap-4">
-            <a
-              href={`/legs/${leg.id}/edit`}
-              className="text-sm text-blue-600 hover:underline"
-            >
+            <a href={`/legs/${leg.id}/edit`} className="text-sm text-blue-600 hover:underline">
               Edit leg
             </a>
             <ArchiveLegButton legId={leg.id} status={leg.status} />
           </div>
         </div>
 
-        {/* Price snapshots */}
+        {/* Price chart */}
         <section>
-          <h2 className="text-sm font-semibold text-gray-700 mb-3">Price history (last 100 checks)</h2>
-          {snapshots.length === 0 ? (
+          <h2 className="text-sm font-semibold text-gray-700 mb-4">Price over time</h2>
+          <div className="bg-white rounded-lg border border-gray-200 p-4">
+            <PriceChart
+              data={chartData}
+              airlines={leg.airlines}
+              purchasePrice={purchasePrice}
+            />
+          </div>
+        </section>
+
+        {/* Price snapshots table */}
+        <section>
+          <h2 className="text-sm font-semibold text-gray-700 mb-3">Recent checks (last 100)</h2>
+          {recentSnapshots.length === 0 ? (
             <p className="text-gray-400 text-sm">No snapshots yet. The cron job will populate this.</p>
           ) : (
             <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
@@ -121,7 +164,7 @@ export default async function LegDetailPage({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
-                  {snapshots.map((s) => (
+                  {recentSnapshots.map((s) => (
                     <tr key={s.id} className="hover:bg-gray-50">
                       <td className="px-4 py-2 text-gray-500">{fmtTs(s.checkedAt)}</td>
                       <td className="px-4 py-2 font-medium">{s.airline}</td>
