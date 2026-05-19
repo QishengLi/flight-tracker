@@ -63,6 +63,7 @@ export async function searchFlights(params: {
   for (const offer of allOffers) {
     const firstFlight = offer.flights?.[0];
     if (!firstFlight || typeof offer.price !== "number") continue;
+    if ((offer.flights?.length ?? 0) > 1) continue; // skip connecting flights
     const iata = resolveIata(firstFlight);
     if (!iata) continue;
     if (params.airlines.length > 0 && !params.airlines.includes(iata)) continue;
