@@ -93,14 +93,14 @@ export default function EditLegForm({ leg }: { leg: Leg }) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="bg-white rounded-lg border border-gray-200 p-6 space-y-5">
+    <form onSubmit={handleSubmit} className="bg-white rounded-lg border border-gray-200 p-4 sm:p-6 space-y-5">
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded">
           {error}
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-4 text-sm text-gray-500">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm text-gray-500">
         <div>
           <p className="font-medium text-gray-400 text-xs uppercase tracking-wide mb-1">Origin</p>
           <p className="text-gray-900 font-medium">{leg.origin}</p>
@@ -140,7 +140,7 @@ export default function EditLegForm({ leg }: { leg: Leg }) {
       <hr className="border-gray-100" />
       <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Purchase info</p>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Field label="Purchase price ($)">
           <input
             type="number"
@@ -162,7 +162,7 @@ export default function EditLegForm({ leg }: { leg: Leg }) {
         </Field>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Field label="Booked airline">
           <select
             value={form.purchaseAirline}
@@ -190,7 +190,7 @@ export default function EditLegForm({ leg }: { leg: Leg }) {
       <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Alert thresholds</p>
       <p className="text-xs text-gray-400 -mt-3">Leave blank to use defaults ($50 or 10%).</p>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Field label="Min drop ($)">
           <input
             type="number"
@@ -219,7 +219,7 @@ export default function EditLegForm({ leg }: { leg: Leg }) {
       <hr className="border-gray-100" />
       <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Trip grouping</p>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Field label="Trip group label">
           <input
             type="text"

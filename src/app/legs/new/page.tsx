@@ -81,20 +81,20 @@ export default function NewLegPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b border-gray-200 px-6 py-4">
+      <header className="bg-white border-b border-gray-200 px-4 py-3 sm:px-6 sm:py-4">
         <a href="/" className="text-blue-600 text-sm hover:underline">← Dashboard</a>
         <h1 className="text-lg font-semibold text-gray-900 mt-1">Add leg</h1>
       </header>
 
-      <main className="px-6 py-8 max-w-xl mx-auto">
-        <form onSubmit={handleSubmit} className="bg-white rounded-lg border border-gray-200 p-6 space-y-5">
+      <main className="px-4 py-6 sm:px-6 sm:py-8 max-w-xl mx-auto">
+        <form onSubmit={handleSubmit} className="bg-white rounded-lg border border-gray-200 p-4 sm:p-6 space-y-5">
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded">
               {error}
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="Origin (IATA)" required>
               <input
                 type="text"
@@ -148,7 +148,7 @@ export default function NewLegPage() {
           <hr className="border-gray-100" />
           <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Purchase info (optional)</p>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="Purchase price ($)">
               <input
                 type="number"
@@ -170,7 +170,7 @@ export default function NewLegPage() {
             </Field>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="Booked airline">
               <select
                 value={form.purchaseAirline}
@@ -197,7 +197,7 @@ export default function NewLegPage() {
           <hr className="border-gray-100" />
           <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Trip grouping (optional)</p>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="Trip group label">
               <input
                 type="text"

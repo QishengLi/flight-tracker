@@ -84,16 +84,16 @@ export default async function LegDetailPage({
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b border-gray-200 px-6 py-4">
+      <header className="bg-white border-b border-gray-200 px-4 py-3 sm:px-6 sm:py-4">
         <a href="/" className="text-blue-600 text-sm hover:underline">← Dashboard</a>
         <h1 className="text-lg font-semibold text-gray-900 mt-1">
           {leg.origin} → {leg.destination} · {fmtDate(leg.departureDate)}
         </h1>
       </header>
 
-      <main className="px-6 py-8 max-w-4xl mx-auto space-y-8">
+      <main className="px-4 py-6 sm:px-6 sm:py-8 max-w-4xl mx-auto space-y-8">
         {/* Leg summary card */}
-        <div className="bg-white rounded-lg border border-gray-200 p-6 grid grid-cols-2 gap-4 text-sm">
+        <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-6 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
           <div>
             <p className="text-gray-500">Airlines tracked</p>
             <p className="font-medium">{leg.airlines.join(", ")}</p>
@@ -121,7 +121,7 @@ export default async function LegDetailPage({
             </>
           )}
           {leg.notes && (
-            <div className="col-span-2">
+            <div className="sm:col-span-2">
               <p className="text-gray-500">Notes</p>
               <p>{leg.notes}</p>
             </div>
@@ -153,6 +153,7 @@ export default async function LegDetailPage({
             <p className="text-gray-400 text-sm">No snapshots yet. The cron job will populate this.</p>
           ) : (
             <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+              <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-left text-xs text-gray-500 border-b border-gray-100">
@@ -177,6 +178,7 @@ export default async function LegDetailPage({
                   ))}
                 </tbody>
               </table>
+              </div>
             </div>
           )}
         </section>
@@ -186,6 +188,7 @@ export default async function LegDetailPage({
           <section>
             <h2 className="text-sm font-semibold text-gray-700 mb-3">Alerts fired</h2>
             <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+              <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-left text-xs text-gray-500 border-b border-gray-100">
@@ -212,6 +215,7 @@ export default async function LegDetailPage({
                   ))}
                 </tbody>
               </table>
+              </div>
             </div>
           </section>
         )}

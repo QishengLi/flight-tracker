@@ -98,7 +98,7 @@ export default async function Dashboard({
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+      <header className="bg-white border-b border-gray-200 px-4 py-3 sm:px-6 sm:py-4 flex items-center justify-between">
         <h1 className="text-lg font-semibold text-gray-900">Flight Tracker</h1>
         <Link
           href="/legs/new"
@@ -108,7 +108,7 @@ export default async function Dashboard({
         </Link>
       </header>
 
-      <main className="px-6 py-8 max-w-5xl mx-auto">
+      <main className="px-4 py-6 sm:px-6 sm:py-8 max-w-5xl mx-auto">
         {allLegs.length === 0 ? (
           <div className="text-center py-20 text-gray-400">
             <p className="text-lg">No active legs.</p>
@@ -133,7 +133,52 @@ export default async function Dashboard({
                         {label}
                       </div>
                     )}
-                    <table className="w-full text-sm">
+
+                    {/* Mobile card list */}
+                    <div className="md:hidden divide-y divide-gray-100">
+                      {groupLegs.map((leg) => {
+                        const latest = priceMap.get(leg.id);
+                        const currentPrice = latest ? parseFloat(latest.price) : null;
+                        const d = delta(currentPrice, leg.purchasePrice);
+                        return (
+                          <Link key={leg.id} href={`/legs/${leg.id}`} className="block px-4 py-4 hover:bg-gray-50 active:bg-gray-100">
+                            <div className="flex items-start justify-between gap-2">
+                              <div>
+                                <p className="font-medium text-gray-900 text-sm">
+                                  {leg.origin} → {leg.destination}
+                                </p>
+                                {leg.tripGroupRole && (
+                                  <span className="text-xs text-gray-400">{leg.tripGroupRole}</span>
+                                )}
+                                <p className="text-xs text-gray-500 mt-0.5">{fmtDate(leg.departureDate)}</p>
+                                <p className="text-xs text-gray-400 mt-0.5">{leg.airlines.join(", ")}</p>
+                              </div>
+                              <div className="text-right shrink-0">
+                                {currentPrice !== null ? (
+                                  <>
+                                    <p className="text-sm font-medium text-gray-900">${currentPrice.toFixed(0)}</p>
+                                    {latest?.airline && (
+                                      <p className="text-xs text-gray-400">{latest.airline}{latest.fareBrand ? ` · ${latest.fareBrand}` : ""}</p>
+                                    )}
+                                  </>
+                                ) : (
+                                  <p className="text-xs text-gray-400">No data</p>
+                                )}
+                                {d !== null && (
+                                  <p className={`text-xs font-medium mt-0.5 ${d < 0 ? "text-green-600" : "text-gray-400"}`}>
+                                    {d < 0 ? `↓ $${Math.abs(d).toFixed(0)}` : d === 0 ? "—" : `↑ $${d.toFixed(0)}`}
+                                    {leg.purchasePrice && <span className="text-gray-300 font-normal"> vs {fmtPrice(leg.purchasePrice)}</span>}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          </Link>
+                        );
+                      })}
+                    </div>
+
+                    {/* Desktop table */}
+                    <table className="hidden md:table w-full text-sm">
                       <thead>
                         <tr className="text-left text-xs text-gray-500 border-b border-gray-100">
                           <th className="px-4 py-3 font-medium">Route</th>
