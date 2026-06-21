@@ -426,7 +426,155 @@ Realistic total: **$0–$1/month** for the foreseeable future.
 
 ---
 
-## 13. Open questions
+## 13. Archive & Trends page
+
+### 13.1 Purpose
+
+A dedicated view for legs that have already departed (`status = 'archived'`), plus aggregate price-pattern charts across all historical departures on each route. The active dashboard only shows in-flight tracking; this page is the "hindsight" lens — useful for understanding how prices moved and calibrating future buying decisions.
+
+### 13.2 Navigation
+
+Add a two-item tab bar directly below the existing header, shared across all top-level pages:
+
+```
+┌──────────────────────────────────────────────────────────┐
+│ Flight Tracker                              + Add leg     │
+├──────────────────────────────────────────────────────────┤
+│  Active   Archive                                        │
+└──────────────────────────────────────────────────────────┘
+```
+
+- **Active** → `/` (existing dashboard, unchanged)
+- **Archive** → `/archive` (new page)
+
+Tab bar is rendered as a shared `<nav>` component in the layout, replacing the current bare header. The active tab is underlined. On mobile the tabs sit left-aligned below the title row.
+
+### 13.3 `/archive` page layout
+
+Two stacked sections separated by a visible divider:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ ARCHIVED LEGS                                                    │
+│ [month filter ▼]  [route filter ▼]                              │
+│                                                                  │
+│  Route         Date      Airline  Paid   Lowest  Δ   Checks     │
+│  SEA→SFO  Mon Jun 9  AS/DL/UA   $289   $214   ↓$75    18       │
+│  SFO→SEA  Thu Jun 12  AS/DL/UA  $312   $312    —       21       │
+│  ...                                                             │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│ ROUTE TRENDS                                                     │
+│ Route [SEA → SFO ▼]   Airline [All ▼]                          │
+│                                                                  │
+│  Price vs. days before departure (aggregated across all         │
+│  tracked departures on this route)                              │
+│                                                                  │
+│  $400 ┤                                                          │
+│  $350 ┤  ·  ·                                                    │
+│  $300 ┤        · ·  ·                                            │
+│  $250 ┤               · · · ·                                    │
+│  $200 ┤                        · · ·                             │
+│       └──────────────────────────────                            │
+│        90d   60d   45d   30d   14d  7d  2d                      │
+│                                                                  │
+│  Each dot = one daily_lowest reading from a past departure.     │
+│  Line = rolling median. Shaded band = 25th–75th percentile.    │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+#### Section 1 — Archived legs table
+
+Columns (desktop):
+
+| Column | Source | Notes |
+|--------|--------|-------|
+| Route | `legs.origin → legs.destination` | Links to existing `/legs/[id]` detail page |
+| Departure | `legs.departure_date` | Formatted as "Mon Jun 9" |
+| Airlines | `legs.airlines` | Comma-separated IATA codes |
+| Paid | `legs.purchase_price` | "—" if not set |
+| Lowest seen | `MIN(daily_lowest.price)` for this leg | The cheapest price observed at any point during tracking |
+| Δ | `paid − lowest_seen` | Green `↓ $75` if you overpaid; `—` if no purchase price or no data |
+| Checks | `COUNT(price_snapshots)` for this leg | Gives a sense of tracking coverage |
+
+On mobile: collapse to a card list showing Route, Date, Paid, Lowest seen, Δ — same pattern as the active dashboard cards.
+
+Filters:
+- **Month** (departure month) — same dropdown style as the active dashboard
+- **Route** — dropdown of distinct `origin → destination` pairs from archived legs
+
+Empty state: "No archived legs yet. Legs are automatically archived after their departure date."
+
+#### Section 2 — Route trends chart
+
+A scatter + median line chart answering: "For this route, how does price relate to how far in advance you're looking?"
+
+**X-axis:** days before departure (lead time), derived by computing `departure_date − checked_at` for each `daily_lowest` row. Range: 0–90 days, right-to-left (90d on left, 0d on right — earlier purchase on the left, last-minute on the right).
+
+**Y-axis:** price (USD).
+
+**Data points:** each dot is one `daily_lowest` row from an archived leg on the selected route. Dots from different past departures are overlaid — the chart aggregates across all of them to build a pattern.
+
+**Overlays:**
+- Rolling median line (binned into ~5-day buckets)
+- Shaded band between 25th and 75th percentile per bucket
+
+**Controls:**
+- **Route** dropdown (required — defaults to the first archived route)
+- **Airline** dropdown (All / AS / DL / UA) — filters `daily_lowest.airline`
+
+**Minimum data guard:** if fewer than 3 archived departures exist for the selected route, show a soft notice: "Not enough history yet — trends improve after 3+ past trips on this route." Still render whatever dots exist.
+
+### 13.4 Data queries
+
+**Archived legs table:**
+```sql
+SELECT
+  l.*,
+  MIN(dl.price)            AS lowest_seen,
+  COUNT(ps.id)             AS check_count
+FROM legs l
+LEFT JOIN daily_lowest dl ON dl.leg_id = l.id
+LEFT JOIN price_snapshots ps ON ps.leg_id = l.id
+WHERE l.status = 'archived'
+GROUP BY l.id
+ORDER BY l.departure_date DESC;
+```
+
+**Route trends chart:**
+```sql
+SELECT
+  dl.price,
+  (l.departure_date::date - dl.checked_at::date) AS lead_days,
+  dl.airline
+FROM daily_lowest dl
+JOIN legs l ON l.id = dl.leg_id
+WHERE l.status = 'archived'
+  AND l.origin = $1
+  AND l.destination = $2
+  AND ($3 = 'ALL' OR dl.airline = $3)
+ORDER BY lead_days DESC;
+```
+
+Both queries are server-side (server components), no client fetch needed. Route trends data is passed to a `<TrendsChart />` client component (Recharts `ScatterChart`).
+
+### 13.5 Implementation plan
+
+1. Add a shared `<TabNav>` component and update `layout.tsx` to render it.
+2. Create `src/app/archive/page.tsx` — server component that runs both queries and renders the two sections.
+3. Create `src/app/archive/TrendsChart.tsx` — client component wrapping Recharts `ScatterChart` with median line computed from the raw dot data.
+4. Add route/month filter state via URL search params (same pattern as `DashboardFilters`), with a `ArchiveFilters` client component.
+5. No schema changes required — all data is already in `legs`, `daily_lowest`, and `price_snapshots`.
+
+### 13.6 Open questions
+
+- **Trends chart interactivity:** should hovering a dot reveal which specific departure it came from? Nice-to-have; defer to after initial build.
+- **Tab on mobile:** if a third top-level page is added later (e.g., Settings), the tab bar may need to scroll horizontally or collapse to a menu. Not a concern for two tabs.
+
+---
+
+## 14. Open questions
 
 All questions are now resolved:
 

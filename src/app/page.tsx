@@ -6,6 +6,7 @@ import { db } from "@/db";
 import { legs, dailyLowest } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
 import DashboardFilters from "./DashboardFilters";
+import TabNav from "./TabNav";
 
 function fmtDate(d: string) {
   return new Date(d + "T12:00:00").toLocaleDateString("en-US", {
@@ -98,7 +99,7 @@ export default async function Dashboard({
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b border-gray-200 px-4 py-3 sm:px-6 sm:py-4 flex items-center justify-between">
+      <header className="bg-white px-4 py-3 sm:px-6 sm:py-4 flex items-center justify-between">
         <h1 className="text-lg font-semibold text-gray-900">Flight Tracker</h1>
         <Link
           href="/legs/new"
@@ -107,6 +108,7 @@ export default async function Dashboard({
           + Add leg
         </Link>
       </header>
+      <TabNav />
 
       <main className="px-4 py-6 sm:px-6 sm:py-8 max-w-5xl mx-auto">
         {allLegs.length === 0 ? (
