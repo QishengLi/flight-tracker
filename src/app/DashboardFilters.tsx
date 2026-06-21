@@ -25,7 +25,7 @@ export default function DashboardFilters({
       <select
         value={selectedMonth}
         onChange={(e) => update("month", e.target.value)}
-        className="flex-1 min-w-[140px] text-sm border border-gray-200 rounded-md px-3 py-1.5 bg-white text-gray-700 focus:outline-none focus:border-blue-400"
+        className="min-w-[140px] text-sm border border-gray-200 rounded-md px-3 py-1.5 bg-white text-gray-700 focus:outline-none focus:border-blue-400"
       >
         <option value="">All months</option>
         {months.map((m) => (
@@ -38,7 +38,7 @@ export default function DashboardFilters({
       <select
         value={selectedRole}
         onChange={(e) => update("role", e.target.value)}
-        className="flex-1 min-w-[140px] text-sm border border-gray-200 rounded-md px-3 py-1.5 bg-white text-gray-700 focus:outline-none focus:border-blue-400"
+        className="min-w-[140px] text-sm border border-gray-200 rounded-md px-3 py-1.5 bg-white text-gray-700 focus:outline-none focus:border-blue-400"
       >
         <option value="">Outbound & Return</option>
         <option value="outbound">Outbound only</option>
