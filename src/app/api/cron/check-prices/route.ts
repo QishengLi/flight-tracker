@@ -55,6 +55,8 @@ export async function GET(req: NextRequest) {
           airline,
           price: String(o.price),
           fareBrand: o.travelClass,
+          flightNumber: o.flightNumber,
+          departureTime: o.departureTime,
           isChangeable: null,
           flightOffer: o.raw as Record<string, unknown>,
         });
@@ -68,6 +70,8 @@ export async function GET(req: NextRequest) {
         price: String(best.price),
         airline: best.airline,
         fareBrand: best.travelClass,
+        flightNumber: best.flightNumber,
+        departureTime: best.departureTime,
         isChangeable: null,
         flightOffer: best.raw as Record<string, unknown>,
       });

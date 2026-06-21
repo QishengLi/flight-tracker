@@ -24,6 +24,7 @@ export interface FlightResult {
   price: number;
   travelClass: string;
   flightNumber: string | null;
+  departureTime: string | null;
   raw: unknown;
 }
 
@@ -72,6 +73,7 @@ export async function searchFlights(params: {
       price: offer.price,
       travelClass: firstFlight.travel_class ?? "Economy",
       flightNumber: firstFlight.flight_number ?? null,
+      departureTime: firstFlight.departure_airport?.time ?? null,
       raw: offer,
     });
   }
