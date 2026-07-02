@@ -5,6 +5,7 @@ import { db } from "@/db";
 import { legs, priceSnapshots, alerts as alertsTable } from "@/db/schema";
 import { eq, asc, desc } from "drizzle-orm";
 import ArchiveLegButton from "./ArchiveLegButton";
+import DeleteLegButton from "./DeleteLegButton";
 import PriceChart, { ChartPoint } from "./PriceChart";
 
 function fmtDate(d: string) {
@@ -131,6 +132,7 @@ export default async function LegDetailPage({
               Edit leg
             </a>
             <ArchiveLegButton legId={leg.id} status={leg.status} />
+            {leg.status === "archived" && <DeleteLegButton legId={leg.id} />}
           </div>
         </div>
 
