@@ -67,7 +67,16 @@ export default async function LegDetailPage({
       .where(eq(priceSnapshots.legId, id))
       .orderBy(asc(priceSnapshots.checkedAt)),
     db
-      .select()
+      .select({
+        id: priceSnapshots.id,
+        checkedAt: priceSnapshots.checkedAt,
+        airline: priceSnapshots.airline,
+        price: priceSnapshots.price,
+        fareBrand: priceSnapshots.fareBrand,
+        flightNumber: priceSnapshots.flightNumber,
+        departureTime: priceSnapshots.departureTime,
+        isChangeable: priceSnapshots.isChangeable,
+      })
       .from(priceSnapshots)
       .where(eq(priceSnapshots.legId, id))
       .orderBy(desc(priceSnapshots.checkedAt))
@@ -162,6 +171,8 @@ export default async function LegDetailPage({
                     <th className="px-4 py-3 font-medium">Checked at</th>
                     <th className="px-4 py-3 font-medium">Airline</th>
                     <th className="px-4 py-3 font-medium">Price</th>
+                    <th className="px-4 py-3 font-medium">Flight</th>
+                    <th className="px-4 py-3 font-medium">Departs</th>
                     <th className="px-4 py-3 font-medium">Fare brand</th>
                     <th className="px-4 py-3 font-medium">Changeable</th>
                   </tr>
@@ -172,6 +183,8 @@ export default async function LegDetailPage({
                       <td className="px-4 py-2 text-gray-500">{fmtTs(s.checkedAt)}</td>
                       <td className="px-4 py-2 font-medium">{s.airline}</td>
                       <td className="px-4 py-2 text-gray-900">${parseFloat(s.price).toFixed(2)}</td>
+                      <td className="px-4 py-2 text-gray-500">{s.flightNumber ?? "—"}</td>
+                      <td className="px-4 py-2 text-gray-500">{s.departureTime ?? "—"}</td>
                       <td className="px-4 py-2 text-gray-500">{s.fareBrand ?? "—"}</td>
                       <td className="px-4 py-2 text-gray-500">
                         {s.isChangeable === null ? "—" : s.isChangeable ? "Yes" : "No"}

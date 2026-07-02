@@ -22,6 +22,8 @@ export async function sendPriceDropAlert(params: {
   purchasePrice: number;
   cheapestAirline: string;
   fareBrand: string | null;
+  flightNumber: string | null;
+  departureTime: string | null;
 }): Promise<void> {
   const drop = params.purchasePrice - params.currentPrice;
   const pct = ((drop / params.purchasePrice) * 100).toFixed(0);
@@ -35,9 +37,16 @@ export async function sendPriceDropAlert(params: {
     ? ` — ${params.cheapestAirline} ${params.fareBrand}`
     : ` — ${params.cheapestAirline}`;
 
+  const flightNote = params.flightNumber
+    ? `Flight ${params.flightNumber}${params.departureTime ? ` · departs ${params.departureTime}` : ""}`
+    : params.departureTime
+    ? `Departs ${params.departureTime}`
+    : null;
+
   const html = `
 <p><strong>${params.origin} → ${params.destination}</strong> on ${dateStr}</p>
 <p>Current lowest main-cabin fare: <strong>$${params.currentPrice.toFixed(2)}${brandNote}</strong></p>
+${flightNote ? `<p>${flightNote}</p>` : ""}
 <p>You paid: $${params.purchasePrice.toFixed(2)}</p>
 <p>Drop: <strong>$${drop.toFixed(2)} (${pct}%)</strong></p>
 <p><a href="${legUrl}">View leg detail →</a></p>

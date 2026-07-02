@@ -162,6 +162,13 @@ export default async function Dashboard({
                                     {latest?.airline && (
                                       <p className="text-xs text-gray-400">{latest.airline}{latest.fareBrand ? ` · ${latest.fareBrand}` : ""}</p>
                                     )}
+                                    {(latest?.flightNumber || latest?.departureTime) && (
+                                      <p className="text-xs text-gray-400">
+                                        {latest.flightNumber ?? ""}
+                                        {latest.flightNumber && latest.departureTime ? " · " : ""}
+                                        {latest.departureTime ?? ""}
+                                      </p>
+                                    )}
                                   </>
                                 ) : (
                                   <p className="text-xs text-gray-400">No data</p>
@@ -216,6 +223,13 @@ export default async function Dashboard({
                                       <span className="text-gray-400 text-xs ml-1">
                                         {latest.airline}
                                         {latest.fareBrand ? ` · ${latest.fareBrand}` : ""}
+                                      </span>
+                                    )}
+                                    {(latest?.flightNumber || latest?.departureTime) && (
+                                      <span className="block text-xs text-gray-400 mt-0.5">
+                                        {latest.flightNumber ?? ""}
+                                        {latest.flightNumber && latest.departureTime ? " · " : ""}
+                                        {latest.departureTime ?? ""}
                                       </span>
                                     )}
                                   </span>

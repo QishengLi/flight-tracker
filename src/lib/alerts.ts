@@ -20,6 +20,8 @@ interface LowestRow {
   price: number;
   airline: string;
   fareBrand: string | null;
+  flightNumber: string | null;
+  departureTime: string | null;
 }
 
 export async function evaluateAlerts(
@@ -78,6 +80,8 @@ export async function evaluateAlerts(
     purchasePrice,
     cheapestAirline: lowest.airline,
     fareBrand: lowest.fareBrand,
+    flightNumber: lowest.flightNumber,
+    departureTime: lowest.departureTime,
   });
 
   await db

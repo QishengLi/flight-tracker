@@ -80,6 +80,8 @@ export async function GET(req: NextRequest) {
         price: best.price,
         airline: best.airline,
         fareBrand: best.travelClass,
+        flightNumber: best.flightNumber,
+        departureTime: best.departureTime,
       });
       if (fired) alertsFired++;
 
