@@ -9,6 +9,19 @@ const AIRLINE_OPTIONS = [
   { code: "UA", name: "United" },
 ];
 
+const AIRPORT_OPTIONS = [
+  { code: "SEA", name: "Seattle-Tacoma" },
+  { code: "SFO", name: "San Francisco" },
+  { code: "SJC", name: "San Jose" },
+  { code: "LAX", name: "Los Angeles" },
+  { code: "PDX", name: "Portland" },
+  { code: "JFK", name: "New York JFK" },
+  { code: "ORD", name: "Chicago O'Hare" },
+  { code: "DEN", name: "Denver" },
+  { code: "LAS", name: "Las Vegas" },
+  { code: "PHX", name: "Phoenix" },
+];
+
 export default function NewLegPage() {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
@@ -49,8 +62,8 @@ export default function NewLegPage() {
     setError(null);
 
     const payload = {
-      origin: form.origin.trim().toUpperCase(),
-      destination: form.destination.trim().toUpperCase(),
+      origin: form.origin,
+      destination: form.destination,
       departureDate: form.departureDate,
       airlines: form.airlines,
       purchasePrice: form.purchasePrice ? parseFloat(form.purchasePrice) : undefined,
@@ -95,27 +108,31 @@ export default function NewLegPage() {
           )}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Field label="Origin (IATA)" required>
-              <input
-                type="text"
-                maxLength={3}
-                placeholder="SEA"
+            <Field label="Origin" required>
+              <select
                 value={form.origin}
-                onChange={(e) => setForm((f) => ({ ...f, origin: e.target.value.toUpperCase() }))}
+                onChange={(e) => setForm((f) => ({ ...f, origin: e.target.value }))}
                 className="input"
                 required
-              />
+              >
+                <option value="">Select airport…</option>
+                {AIRPORT_OPTIONS.map(({ code, name }) => (
+                  <option key={code} value={code}>{code} — {name}</option>
+                ))}
+              </select>
             </Field>
-            <Field label="Destination (IATA)" required>
-              <input
-                type="text"
-                maxLength={3}
-                placeholder="SFO"
+            <Field label="Destination" required>
+              <select
                 value={form.destination}
-                onChange={(e) => setForm((f) => ({ ...f, destination: e.target.value.toUpperCase() }))}
+                onChange={(e) => setForm((f) => ({ ...f, destination: e.target.value }))}
                 className="input"
                 required
-              />
+              >
+                <option value="">Select airport…</option>
+                {AIRPORT_OPTIONS.map(({ code, name }) => (
+                  <option key={code} value={code}>{code} — {name}</option>
+                ))}
+              </select>
             </Field>
           </div>
 
