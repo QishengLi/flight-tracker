@@ -104,35 +104,19 @@ export default function NewLegPage() {
             </div>
           )}
 
-          <datalist id="airport-list">
-            {AIRPORT_OPTIONS.map(({ code, name }) => (
-              <option key={code} value={code}>{name}</option>
-            ))}
-          </datalist>
-
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="Origin" required>
-              <input
-                type="text"
-                list="airport-list"
+              <AirportSelect
                 placeholder="SEA"
-                maxLength={3}
                 value={form.origin}
-                onChange={(e) => setForm((f) => ({ ...f, origin: e.target.value.toUpperCase() }))}
-                className="input"
-                required
+                onChange={(v) => setForm((f) => ({ ...f, origin: v }))}
               />
             </Field>
             <Field label="Destination" required>
-              <input
-                type="text"
-                list="airport-list"
+              <AirportSelect
                 placeholder="SFO"
-                maxLength={3}
                 value={form.destination}
-                onChange={(e) => setForm((f) => ({ ...f, destination: e.target.value.toUpperCase() }))}
-                className="input"
-                required
+                onChange={(v) => setForm((f) => ({ ...f, destination: v }))}
               />
             </Field>
           </div>
@@ -259,6 +243,65 @@ export default function NewLegPage() {
           </div>
         </form>
       </main>
+    </div>
+  );
+}
+
+function AirportSelect({
+  value,
+  onChange,
+  placeholder,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  placeholder: string;
+}) {
+  const [open, setOpen] = useState(false);
+
+  const filtered = AIRPORT_OPTIONS.filter(
+    ({ code, name }) =>
+      !value ||
+      code.startsWith(value.toUpperCase()) ||
+      name.toLowerCase().includes(value.toLowerCase())
+  );
+
+  return (
+    <div className="relative">
+      <input
+        type="text"
+        maxLength={3}
+        placeholder={placeholder}
+        value={value}
+        onChange={(e) => {
+          onChange(e.target.value.toUpperCase());
+          setOpen(true);
+        }}
+        onFocus={() => setOpen(true)}
+        onBlur={() => setOpen(false)}
+        className="input w-full"
+        required
+      />
+      {open && filtered.length > 0 && (
+        <ul className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-56 overflow-auto">
+          {filtered.map(({ code, name }) => (
+            <li key={code}>
+              <button
+                type="button"
+                // preventDefault so the input's blur doesn't swallow the tap on mobile
+                onPointerDown={(e) => {
+                  e.preventDefault();
+                  onChange(code);
+                  setOpen(false);
+                }}
+                className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
+              >
+                <span className="font-medium text-gray-900">{code}</span>
+                <span className="text-gray-400 ml-2">{name}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
