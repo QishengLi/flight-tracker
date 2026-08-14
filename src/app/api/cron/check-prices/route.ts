@@ -37,6 +37,7 @@ export async function GET(req: NextRequest) {
         destination: leg.destination,
         departureDate: leg.departureDate,
         airlines: leg.airlines,
+        departureWindows: leg.departureWindows,
       });
       apiCalls++;
 

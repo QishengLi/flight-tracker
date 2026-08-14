@@ -23,6 +23,9 @@ export const legs = pgTable(
     destination: text("destination").notNull(),
     departureDate: date("departure_date").notNull(),
     airlines: text("airlines").array().notNull(),
+    // Departure-time windows to track (morning/afternoon/evening).
+    // Null or empty = track all departure times.
+    departureWindows: text("departure_windows").array(),
     cabin: text("cabin").default("ECONOMY").notNull(),
     passengers: integer("passengers").default(1).notNull(),
 

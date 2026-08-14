@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { legs } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { normalizeWindows } from "@/lib/departureWindows";
 
 export async function GET() {
   const rows = await db
@@ -20,6 +21,7 @@ export async function POST(req: NextRequest) {
     destination,
     departureDate,
     airlines,
+    departureWindows,
     cabin = "ECONOMY",
     passengers = 1,
     tripGroup,
@@ -44,6 +46,7 @@ export async function POST(req: NextRequest) {
       destination: destination.toUpperCase(),
       departureDate,
       airlines,
+      departureWindows: normalizeWindows(departureWindows),
       cabin,
       passengers,
       tripGroup: tripGroup || null,

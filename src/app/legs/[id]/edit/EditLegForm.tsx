@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { DEPARTURE_WINDOWS } from "@/lib/departureWindows";
 
 const AIRLINE_OPTIONS = [
   { code: "AS", name: "Alaska" },
@@ -15,6 +16,7 @@ type Leg = {
   destination: string;
   departureDate: string;
   airlines: string[];
+  departureWindows: string[] | null;
   tripGroup: string | null;
   tripGroupRole: string | null;
   purchasePrice: string | null;
@@ -34,6 +36,7 @@ export default function EditLegForm({ leg }: { leg: Leg }) {
   const [form, setForm] = useState({
     departureDate: leg.departureDate,
     airlines: leg.airlines,
+    departureWindows: leg.departureWindows ?? [],
     tripGroup: leg.tripGroup ?? "",
     tripGroupRole: leg.tripGroupRole ?? "",
     purchasePrice: leg.purchasePrice ?? "",
@@ -54,6 +57,15 @@ export default function EditLegForm({ leg }: { leg: Leg }) {
     }));
   }
 
+  function toggleWindow(key: string) {
+    setForm((f) => ({
+      ...f,
+      departureWindows: f.departureWindows.includes(key)
+        ? f.departureWindows.filter((w) => w !== key)
+        : [...f.departureWindows, key],
+    }));
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (form.airlines.length === 0) {
@@ -69,6 +81,7 @@ export default function EditLegForm({ leg }: { leg: Leg }) {
       body: JSON.stringify({
         departureDate: form.departureDate,
         airlines: form.airlines,
+        departureWindows: form.departureWindows,
         tripGroup: form.tripGroup || null,
         tripGroupRole: form.tripGroupRole || null,
         purchasePrice: form.purchasePrice ? parseFloat(form.purchasePrice) : null,
@@ -135,6 +148,29 @@ export default function EditLegForm({ leg }: { leg: Leg }) {
             </label>
           ))}
         </div>
+      </Field>
+
+      <Field label="Departure time">
+        <div className="flex flex-wrap gap-2">
+          {DEPARTURE_WINDOWS.map(({ key, label, hint }) => {
+            const active = form.departureWindows.includes(key);
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => toggleWindow(key)}
+                className={`px-3 py-1.5 rounded-md border text-sm transition-colors ${
+                  active
+                    ? "bg-blue-600 border-blue-600 text-white"
+                    : "bg-white border-gray-300 text-gray-700 hover:bg-gray-50"
+                }`}
+              >
+                {label} <span className={active ? "text-blue-100" : "text-gray-400"}>{hint}</span>
+              </button>
+            );
+          })}
+        </div>
+        <p className="text-xs text-gray-400">Leave all unselected to track any departure time.</p>
       </Field>
 
       <hr className="border-gray-100" />

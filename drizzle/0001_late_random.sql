@@ -1,0 +1,1 @@
+ALTER TABLE "legs" ADD COLUMN "departure_windows" text[];

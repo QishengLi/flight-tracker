@@ -1,3 +1,5 @@
+import { matchesDepartureWindows } from "./departureWindows";
+
 const SERPAPI_URL = "https://serpapi.com/search.json";
 
 // Maps lowercase airline name strings to IATA codes.
@@ -33,6 +35,7 @@ export async function searchFlights(params: {
   destination: string;
   departureDate: string;
   airlines: string[];
+  departureWindows?: string[] | null;
   adults?: number;
 }): Promise<FlightResult[]> {
   const query = new URLSearchParams({
@@ -68,12 +71,14 @@ export async function searchFlights(params: {
     const iata = resolveIata(firstFlight);
     if (!iata) continue;
     if (params.airlines.length > 0 && !params.airlines.includes(iata)) continue;
+    const departureTime = firstFlight.departure_airport?.time ?? null;
+    if (!matchesDepartureWindows(departureTime, params.departureWindows)) continue;
     results.push({
       airline: iata,
       price: offer.price,
       travelClass: firstFlight.travel_class ?? "Economy",
       flightNumber: firstFlight.flight_number ?? null,
-      departureTime: firstFlight.departure_airport?.time ?? null,
+      departureTime,
       raw: offer,
     });
   }

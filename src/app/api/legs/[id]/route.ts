@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { legs } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { normalizeWindows } from "@/lib/departureWindows";
 
 export async function PATCH(
   req: NextRequest,
@@ -12,7 +13,7 @@ export async function PATCH(
 
   const allowed = [
     "status", "notes",
-    "airlines", "departureDate", "cabin", "passengers",
+    "airlines", "departureWindows", "departureDate", "cabin", "passengers",
     "tripGroup", "tripGroupRole",
     "purchasePrice", "purchaseDate", "purchaseAirline", "bookingRef",
     "alertThresholdAbs", "alertThresholdPct",
@@ -20,6 +21,9 @@ export async function PATCH(
   const updates: Record<string, unknown> = { updatedAt: new Date() };
   for (const key of allowed) {
     if (key in body) updates[key] = body[key];
+  }
+  if ("departureWindows" in updates) {
+    updates.departureWindows = normalizeWindows(updates.departureWindows);
   }
 
   const [row] = await db

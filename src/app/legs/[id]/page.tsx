@@ -7,6 +7,7 @@ import { eq, asc, desc } from "drizzle-orm";
 import ArchiveLegButton from "./ArchiveLegButton";
 import DeleteLegButton from "./DeleteLegButton";
 import PriceChart, { ChartPoint } from "./PriceChart";
+import { DEPARTURE_WINDOWS } from "@/lib/departureWindows";
 
 function fmtDate(d: string) {
   return new Date(d + "T12:00:00").toLocaleDateString("en-US", {
@@ -107,6 +108,16 @@ export default async function LegDetailPage({
           <div>
             <p className="text-gray-500">Airlines tracked</p>
             <p className="font-medium">{leg.airlines.join(", ")}</p>
+          </div>
+          <div>
+            <p className="text-gray-500">Departure times</p>
+            <p className="font-medium">
+              {leg.departureWindows && leg.departureWindows.length > 0
+                ? DEPARTURE_WINDOWS.filter((w) => leg.departureWindows!.includes(w.key))
+                    .map((w) => w.label)
+                    .join(", ")
+                : "Any time"}
+            </p>
           </div>
           <div>
             <p className="text-gray-500">Status</p>
