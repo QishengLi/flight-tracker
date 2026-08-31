@@ -75,7 +75,6 @@ export const priceSnapshots = pgTable(
     departureTime: text("departure_time"),
     isChangeable: boolean("is_changeable"),
     flightOffer: jsonb("flight_offer"),
-    source: text("source").default("amadeus").notNull(),
   },
   (t) => [index("snapshots_leg_time_idx").on(t.legId, t.checkedAt)]
 );
